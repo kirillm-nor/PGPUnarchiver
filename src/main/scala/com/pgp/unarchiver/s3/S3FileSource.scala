@@ -28,7 +28,7 @@ class S3FileSource(bucketName: String, region: String)(
 
   import system.dispatcher
 
-  private lazy val files: Future[ParSeq[FileMeta]] = S3
+  private lazy val files: Future[Seq[FileMeta]] = S3
     .listBucket(bucketName, None)
     .flatMapConcat(
       l =>
@@ -44,7 +44,6 @@ class S3FileSource(bucketName: String, region: String)(
                  o.headers.asScala.find(h => h.name() == "md5").map(_.value()))
     }
     .runWith(Sink.seq)
-    .map(_.par)
 
   private[this] def fileCheckSum(file: FileMeta): Future[String] =
     Source
@@ -56,7 +55,7 @@ class S3FileSource(bucketName: String, region: String)(
           })
       .runWith(CheckSumShape.sink)
 
-  def filesCheckSums: Future[ParSeq[String]] =
+  def filesCheckSums: Future[Seq[String]] =
     files.flatMap(p => Future.sequence(p.map(fileCheckSum)))
 
 }
