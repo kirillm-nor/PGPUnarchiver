@@ -22,13 +22,15 @@ object S3FileSource {
 
 }
 
-class S3FileSource(bucketName: String, region: String)(
+class S3FileSource(bucketName: String, checkSumPath: String)(
     implicit materialiser: ActorMaterializer,
     system: ActorSystem) {
 
   import system.dispatcher
 
-  private lazy val files: Future[Seq[FileMeta]] = S3
+  private[this] val supportedExtension = Seq("tar.gz", "gz", "zip")
+
+  private[this] lazy val files: Future[Seq[FileMeta]] = S3
     .listBucket(bucketName, None)
     .flatMapConcat(
       l =>
@@ -37,12 +39,17 @@ class S3FileSource(bucketName: String, region: String)(
           .map(o => (l, o.get)))
     .map {
       case (l, o) =>
-        FileMeta(l.size,
-                 l.key.split("/").last,
-                 l.key.split(".").last,
-                 l.key,
-                 o.headers.asScala.find(h => h.name() == "md5").map(_.value()))
+        val shortExt = l.key.split(".").takeRight(2)
+        val ext =
+          if (shortExt.mkString(".") == "tar.gz") "tar.gz" else shortExt.last
+        FileMeta(
+          l.size,
+          l.key.split("/").last,
+          ext,
+          l.key,
+          o.headers.asScala.find(h => h.name() == checkSumPath).map(_.value()))
     }
+    .filter(f => supportedExtension.contains(f.ext))
     .runWith(Sink.seq)
 
   private[this] def fileCheckSum(file: FileMeta): Future[String] =
@@ -55,7 +62,10 @@ class S3FileSource(bucketName: String, region: String)(
           })
       .runWith(CheckSumShape.sink)
 
-  def filesCheckSums: Future[Seq[String]] =
-    files.flatMap(p => Future.sequence(p.map(fileCheckSum)))
+  def filesCheckSums: Future[Seq[(String, String)]] =
+    files.flatMap(p =>
+      Future.sequence(p.map(l => fileCheckSum(l).map(s => l.name -> s))))
+
+  def filesMeta: Future[Seq[FileMeta]] = files
 
 }

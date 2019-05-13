@@ -23,4 +23,10 @@ object Unarchiver {
         TarGZipEventDTO(
           new TarArchiveInputStream(new GzipCompressorInputStream(in)))
     }
+
+  implicit val gzipUnarchiver: UnarchiveAction[GZipEventDTO] =
+    new UnarchiveAction[GZipEventDTO] {
+      override def wrapStream(in: InputStream): GZipEventDTO =
+        GZipEventDTO(new GzipCompressorInputStream(in))
+    }
 }

@@ -4,6 +4,8 @@ import java.io.InputStream
 import java.util.zip.ZipInputStream
 
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 sealed trait EventDTO {
   def stream: InputStream
@@ -23,7 +25,13 @@ object EventAction {
     override type UnarchiveDTO = TarGZipEventDTO
     type TarGZipUnarchiveEventAction = TarGZipUnarchiveEventAction.type
   }
+
+  case object GZipUnarchiveEventAction extends UnarchiveEventAction {
+    override type UnarchiveDTO = GZipEventDTO
+    type GZipUnarchiveEventAction = GZipUnarchiveEventAction.type
+  }
 }
 
-case class ZipEventDTO(stream: ZipInputStream) extends EventDTO
+case class ZipEventDTO(stream: ZipArchiveInputStream) extends EventDTO
 case class TarGZipEventDTO(stream: TarArchiveInputStream) extends EventDTO
+case class GZipEventDTO(stream: GzipCompressorInputStream) extends EventDTO
