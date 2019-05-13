@@ -20,6 +20,10 @@ class PgpUnarchiverPipe(bucketName: String, pgpKeyPath: Path)(
       check <- s3FileSource.filesCheckSums
     } yield {
       val greenMap = files.map(m => m.name -> m.checkSum.getOrElse("")).toMap
+      val checkMap = check.toMap
+      val flags = greenMap.keySet
+        .intersect(checkMap.keySet)
+        .map(k => greenMap(k) == checkMap(k))
     }
   }
 }
