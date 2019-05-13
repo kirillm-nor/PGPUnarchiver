@@ -6,6 +6,10 @@ import java.security.Security
 import org.bouncycastle.openpgp.{PGPException, PGPPrivateKey, PGPSecretKey, PGPSecretKeyRing, PGPUtil}
 import org.bouncycastle.openpgp.operator.jcajce.{JcaKeyFingerprintCalculator, JcaPGPDigestCalculatorProviderBuilder, JcePBESecretKeyDecryptorBuilder}
 
+/**
+  *
+  * @param secretKey
+  */
 class PGPLocalPrivateKey(secretKey: File) {
   private[this] lazy val pgpPrivateKeyRing: PGPSecretKeyRing = new PGPSecretKeyRing(PGPUtil.getDecoderStream(new BufferedInputStream(new FileInputStream(secretKey))),
     new JcaKeyFingerprintCalculator())

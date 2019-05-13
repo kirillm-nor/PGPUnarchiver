@@ -1,6 +1,6 @@
 package com.pgp.unarchiver.pgp
 
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.headers.ByteRange
 import akka.stream.alpakka.s3.scaladsl.S3
@@ -17,6 +17,10 @@ import scala.concurrent.duration._
 object PGPSourceShape {
   case object Base64HeadersPGPNotSupported extends Exception
   case object Base64PGPNotSupported extends Exception
+
+  def apply(bucket: String, fileKey: String, fileSize: Long)(implicit materialiser: ActorMaterializer,
+                                                             system: ActorSystem): Source[Done, NotUsed] =
+    Source.fromGraph(new PGPSourceShape(bucket, fileKey, fileSize))
 }
 
 class PGPSourceShape(bucket: String, fileKey: String, fileSize: Long)(implicit materialiser: ActorMaterializer,

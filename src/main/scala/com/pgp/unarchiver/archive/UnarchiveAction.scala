@@ -4,8 +4,13 @@ import java.io.InputStream
 import java.util.zip.ZipInputStream
 
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
+/**
+  *
+  * @tparam D
+  */
 trait UnarchiveAction[D <: EventDTO] {
   def wrapStream(in: InputStream): D
 }
@@ -14,7 +19,7 @@ object Unarchiver {
   implicit val zipUnarchiver: UnarchiveAction[ZipEventDTO] =
     new UnarchiveAction[ZipEventDTO] {
       override def wrapStream(in: InputStream): ZipEventDTO =
-        ZipEventDTO(new ZipInputStream(in))
+        ZipEventDTO(new ZipArchiveInputStream(in))
     }
 
   implicit val tarGzipUnarchiver: UnarchiveAction[TarGZipEventDTO] =

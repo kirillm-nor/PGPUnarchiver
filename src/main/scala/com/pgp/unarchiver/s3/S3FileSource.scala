@@ -12,23 +12,53 @@ import scala.collection.parallel.ParSeq
 import scala.concurrent.Future
 import scala.collection.JavaConverters._
 
+sealed trait Extention {
+  def name: String
+}
+
+case object TAR_GZ extends Extention {
+  override def name: String = "tar.gz"
+}
+
+case object GZ extends Extention {
+  override def name: String = "gz"
+}
+
+case object ZIP extends Extention {
+  override def name: String = "zip"
+}
+
+case object UNSUPPORTED extends Extention {
+  override def name: String = "xxx"
+}
+
+object Extention {
+  def apply(name: String): Extention = {
+    name.split(".").takeRight(2).toSeq match {
+      case Seq("tar", "gz") => TAR_GZ
+      case Seq(_, "gz") => GZ
+      case Seq(_, "zip") => ZIP
+      case _ => UNSUPPORTED
+    }
+
+  }
+}
+
 object S3FileSource {
 
   case class FileMeta(size: Long,
                       name: String,
-                      ext: String,
+                      ext: Extention,
                       key: String,
                       checkSum: Option[String])
 
 }
 
 class S3FileSource(bucketName: String, checkSumPath: String)(
-    implicit materialiser: ActorMaterializer,
-    system: ActorSystem) {
+  implicit materialiser: ActorMaterializer,
+  system: ActorSystem) {
 
   import system.dispatcher
-
-  private[this] val supportedExtension = Seq("tar.gz", "gz", "zip")
 
   private[this] lazy val files: Future[Seq[FileMeta]] = S3
     .listBucket(bucketName, None)
@@ -39,17 +69,14 @@ class S3FileSource(bucketName: String, checkSumPath: String)(
           .map(o => (l, o.get)))
     .map {
       case (l, o) =>
-        val shortExt = l.key.split(".").takeRight(2)
-        val ext =
-          if (shortExt.mkString(".") == "tar.gz") "tar.gz" else shortExt.last
         FileMeta(
           l.size,
           l.key.split("/").last,
-          ext,
+          Extention(l.key),
           l.key,
           o.headers.asScala.find(h => h.name() == checkSumPath).map(_.value()))
     }
-    .filter(f => supportedExtension.contains(f.ext))
+    .filterNot(f => f.ext == UNSUPPORTED)
     .runWith(Sink.seq)
 
   private[this] def fileCheckSum(file: FileMeta): Future[String] =

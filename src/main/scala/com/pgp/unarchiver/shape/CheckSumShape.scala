@@ -19,6 +19,9 @@ object CheckSumShape {
       .withAttributes(Attributes(Name("checkSum")))
 }
 
+/**
+  *
+  */
 class CheckSumShape
     extends GraphStageWithMaterializedValue[SinkShape[ByteString],
                                             Future[String]] {

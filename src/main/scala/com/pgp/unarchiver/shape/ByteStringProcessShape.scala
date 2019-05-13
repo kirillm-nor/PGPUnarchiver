@@ -4,6 +4,11 @@ import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
 
+/**
+  *
+  * @param f
+  * @tparam A
+  */
 class ByteStringProcessShape[A](f: ByteString => A)
     extends GraphStage[FlowShape[ByteString, A]] {
 
