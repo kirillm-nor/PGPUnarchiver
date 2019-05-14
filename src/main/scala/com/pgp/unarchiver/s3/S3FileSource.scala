@@ -34,11 +34,11 @@ case object UNSUPPORTED extends Extention {
 
 object Extention {
   def apply(name: String): Extention = {
-    name.split(".").takeRight(2).toSeq match {
-      case Seq("tar", "gz") => TAR_GZ
-      case Seq(_, "gz") => GZ
-      case Seq(_, "zip") => ZIP
-      case _ => UNSUPPORTED
+    name.split(".").takeRight(3).toSeq match {
+      case Seq("tar", "gz", _) => TAR_GZ
+      case Seq(_, "gz", _)     => GZ
+      case Seq(_, "zip", _)    => ZIP
+      case _                   => UNSUPPORTED
     }
 
   }
@@ -55,8 +55,8 @@ object S3FileSource {
 }
 
 class S3FileSource(bucketName: String, checkSumPath: String)(
-  implicit materialiser: ActorMaterializer,
-  system: ActorSystem) {
+    implicit materialiser: ActorMaterializer,
+    system: ActorSystem) {
 
   import system.dispatcher
 
