@@ -54,6 +54,14 @@ object S3FileSource {
 
 }
 
+/**
+  * S3 repository source of archived files in a bucket
+  *
+  * @param bucketName AWS bucket name
+  * @param checkSumPath Http Header path to find file checksum
+  * @param materialiser
+  * @param system
+  */
 class S3FileSource(bucketName: String, checkSumPath: String)(
     implicit materialiser: ActorMaterializer,
     system: ActorSystem) {

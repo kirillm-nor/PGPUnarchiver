@@ -4,6 +4,7 @@ import java.nio.file.Path
 
 import akka.Done
 import akka.actor.ActorSystem
+import akka.event.LoggingAdapter
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Sink}
 import akka.util.ByteString
@@ -24,12 +25,12 @@ import scala.concurrent.Future
   * @param s3Client
   */
 class PgpUnarchiverPipe(bucketName: String, pgpKeyPath: Path, passPhrase: String)(
-  implicit materialiser: ActorMaterializer,
+  implicit materialiser: ActorMaterializer, logger: LoggingAdapter,
   system: ActorSystem, s3Client: S3) {
 
   import system.dispatcher
 
-  implicit private val bucket = Bucket(bucketName)
+  implicit private[this] val bucket = Bucket(bucketName)
 
   private[this] val s3FileSource = new S3FileSource(bucketName, "md5")
   private[this] val privateKey = new PGPLocalPrivateKey(pgpKeyPath.toFile)
@@ -67,8 +68,16 @@ class PgpUnarchiverPipe(bucketName: String, pgpKeyPath: Path, passPhrase: String
           bs
         })))
         .runWith(Sink.ignore).recover {
-        case ex => Done
+        case ex =>
+          logger.error("Exceptional pipe execution", ex)
+          Done
       }
     })
   }
+}
+
+object PgpUnarchiverPipe {
+  def apply(bucketName: String, pgpKeyPath: Path, passPhrase: String)(
+    implicit materialiser: ActorMaterializer, loggingAdapter: LoggingAdapter,
+    system: ActorSystem, s3Client: S3): PgpUnarchiverPipe = new PgpUnarchiverPipe(bucketName, pgpKeyPath, passPhrase)
 }

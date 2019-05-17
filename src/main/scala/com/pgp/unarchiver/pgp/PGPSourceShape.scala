@@ -23,6 +23,15 @@ object PGPSourceShape {
     Source.fromGraph(new PGPSourceShape(bucket, fileKey, fileSize))
 }
 
+/**
+  * Data source of S3 hosted files, checks that file can be decrypted.
+  *
+  * @param bucket
+  * @param fileKey
+  * @param fileSize
+  * @param materialiser
+  * @param system
+  */
 class PGPSourceShape(bucket: String, fileKey: String, fileSize: Long)(implicit materialiser: ActorMaterializer,
                                                                       system: ActorSystem) extends GraphStage[SourceShape[Done]] {
 

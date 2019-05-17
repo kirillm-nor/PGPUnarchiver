@@ -11,6 +11,10 @@ sealed trait EventDTO {
   def stream: InputStream
 }
 
+
+/**
+  * Type class which contains unarchive directives.
+  */
 sealed abstract class UnarchiveEventAction {
   type UnarchiveDTO <: EventDTO
 }

@@ -5,9 +5,10 @@ import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
 
 /**
+  * Stream Flow which applies provided function to array of bytes
   *
-  * @param f
-  * @tparam A
+  * @param f the function to proceed incoming byte array
+  * @tparam A result type
   */
 class ByteStringProcessShape[A](f: ByteString => A)
     extends GraphStage[FlowShape[ByteString, A]] {

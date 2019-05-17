@@ -12,6 +12,11 @@ import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory
 
 import scala.reflect.ClassTag
 
+/**
+  * Type class to mark how to extract literal data from different PGP data types.
+  *
+  * @tparam A
+  */
 trait PGPLiteralExtractor[A] {
   def extract(t: Any)(implicit tag: ClassTag[A]): PGPLiteralData
 }

@@ -20,7 +20,7 @@ object CheckSumShape {
 }
 
 /**
-  *
+  * Akka Stream Sink shape to  calculate checksum of file, based on MD5 algorithm
   */
 class CheckSumShape
     extends GraphStageWithMaterializedValue[SinkShape[ByteString],

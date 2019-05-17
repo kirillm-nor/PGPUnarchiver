@@ -48,8 +48,10 @@ object PGPFileDecryptUnarchiveSource {
 }
 
 /**
+  * Stream file source for S3 hosted files which wraps file input stream to stream of ByteString.
+  * Also decrypt and unarchive incoming stream.
   *
-  * @param file
+  * @param file S3 file data
   * @param pgpLocalPrivateKey
   * @param passPhrase
   * @param s3Client
