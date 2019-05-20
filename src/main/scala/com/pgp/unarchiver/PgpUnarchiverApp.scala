@@ -7,6 +7,7 @@ import akka.event.{Logging, LoggingAdapter}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import awscala.s3.S3
 import awscala.{Credentials, Region}
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -86,6 +87,8 @@ object PgpUnarchiverApp extends App with AppSetup {
 
   parser.parse(args, PipeConfig()) match {
     case Some(pc) =>
+      java.security.Security.addProvider(new BouncyCastleProvider)
+
       import actorSystem.dispatcher
 
       implicit val s3Client: S3 =

@@ -3,7 +3,7 @@ package com.pgp.unarchiver.pgp
 import java.io.{BufferedInputStream, File, FileInputStream}
 import java.security.Security
 
-import org.bouncycastle.openpgp.{PGPException, PGPPrivateKey, PGPSecretKey, PGPSecretKeyRing, PGPUtil}
+import org.bouncycastle.openpgp.{PGPException, PGPPrivateKey, PGPSecretKey, PGPSecretKeyRing, PGPSecretKeyRingCollection, PGPUtil}
 import org.bouncycastle.openpgp.operator.jcajce.{JcaKeyFingerprintCalculator, JcaPGPDigestCalculatorProviderBuilder, JcePBESecretKeyDecryptorBuilder}
 
 /**
@@ -11,7 +11,7 @@ import org.bouncycastle.openpgp.operator.jcajce.{JcaKeyFingerprintCalculator, Jc
   * @param secretKey
   */
 class PGPLocalPrivateKey(secretKey: File) {
-  private[this] lazy val pgpPrivateKeyRing: PGPSecretKeyRing = new PGPSecretKeyRing(PGPUtil.getDecoderStream(new BufferedInputStream(new FileInputStream(secretKey))),
+  private[this] lazy val pgpPrivateKeyRingCollection: PGPSecretKeyRingCollection = new PGPSecretKeyRingCollection(PGPUtil.getDecoderStream(new BufferedInputStream(new FileInputStream(secretKey))),
     new JcaKeyFingerprintCalculator())
 
   def getPrivateKey(keyId: Long, passPhrase: Array[Char]): Option[PGPPrivateKey] =
@@ -19,7 +19,7 @@ class PGPLocalPrivateKey(secretKey: File) {
       val provider = Security.getProvider("BC")
       val decryptorFactory = new JcePBESecretKeyDecryptorBuilder(new JcaPGPDigestCalculatorProviderBuilder()
         .setProvider(provider).build()).setProvider(provider).build(passPhrase)
-      Option(pgpPrivateKeyRing.getSecretKey(keyId)).map(_.extractPrivateKey(decryptorFactory))
+      Option(pgpPrivateKeyRingCollection.getSecretKey(keyId)).map(_.extractPrivateKey(decryptorFactory))
     }
     catch {
       case e: PGPException if e.getMessage.contains("checksum mismatch") => throw new IllegalArgumentException("Incorrect config", e)

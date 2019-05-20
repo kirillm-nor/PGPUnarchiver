@@ -1,12 +1,13 @@
 package com.pgp.unarchiver
 
+import java.io.InputStream
 import java.nio.file.Path
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.util.ByteString
 import awscala.s3.{Bucket, S3}
 import com.pgp.unarchiver.pgp.{PGPFileDecryptUnarchiveSource, PGPLocalPrivateKey, PGPSourceShape}
@@ -61,12 +62,18 @@ class PgpUnarchiverPipe(bucketName: String, pgpKeyPath: Path, passPhrase: String
   lazy val decryptionFlow: Future[Seq[Done]] = {
     s3FileSource.filesMeta.flatMap(s => Future.traverse(s) { f =>
       PGPSourceShape(bucketName, f.key, f.size)
-        .flatMapConcat(_ =>
-          PGPFileDecryptUnarchiveSource(f, new PGPLocalPrivateKey(pgpKeyPath.toFile), passPhrase.toCharArray))
-        .via(Flow.fromGraph(new ByteStringProcessShape[ByteString]({ bs =>
+        .flatMapConcat { _ =>
+          val is = s3Client.get(bucket, f.key)
+            .map(_.content)
+            .getOrElse(new InputStream {
+              override def read(): Int = -1
+            })
+          PGPFileDecryptUnarchiveSource(is, f.ext, new PGPLocalPrivateKey(pgpKeyPath.toFile), passPhrase.toCharArray)
+        }
+        .viaMat(Flow.fromGraph(new ByteStringProcessShape[ByteString]({ bs =>
           println(bs.toString())
           bs
-        })))
+        })))(Keep.left)
         .runWith(Sink.ignore).recover {
         case ex =>
           logger.error("Exceptional pipe execution", ex)

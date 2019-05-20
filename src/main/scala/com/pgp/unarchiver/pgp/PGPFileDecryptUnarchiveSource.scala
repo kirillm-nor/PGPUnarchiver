@@ -24,7 +24,8 @@ import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyDataDecryptorFactory
 import scala.concurrent.{Future, Promise}
 import scala.reflect.ClassTag
 import com.pgp.unarchiver.archive.Unarchiver._
-import com.pgp.unarchiver.s3.{GZ, TAR_GZ, ZIP}
+import com.pgp.unarchiver.s3.{Extention, GZ, TAR_GZ, ZIP}
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 
 /**
   *
@@ -35,15 +36,13 @@ object PGPFileDecryptUnarchiveSource {
 
   case object IntegrityException extends Exception
 
-  def apply(file: FileMeta,
+  def apply(is: InputStream, fileExt: Extention,
             pgpLocalPrivateKey: PGPLocalPrivateKey,
-            passPhrase: Array[Char])(
-             implicit s3Client: S3,
-             bucket: Bucket)
-  : Source[ByteString, Future[Done]] = file.ext match {
-    case TAR_GZ => Source.fromGraph(new PGPFileDecryptUnarchiveSource[TarGZipUnarchiveEventAction](file, pgpLocalPrivateKey, passPhrase))
-    case GZ => Source.fromGraph(new PGPFileDecryptUnarchiveSource[GZipUnarchiveEventAction](file, pgpLocalPrivateKey, passPhrase))
-    case ZIP => Source.fromGraph(new PGPFileDecryptUnarchiveSource[ZipUnarchiveEventAction](file, pgpLocalPrivateKey, passPhrase))
+            passPhrase: Array[Char])
+  : Source[ByteString, Future[(Long, InputStream)]] = fileExt match {
+    case TAR_GZ => Source.fromGraph(new PGPFileDecryptUnarchiveSource[TarGZipUnarchiveEventAction](is, pgpLocalPrivateKey, passPhrase))
+    case GZ => Source.fromGraph(new PGPFileDecryptUnarchiveSource[GZipUnarchiveEventAction](is, pgpLocalPrivateKey, passPhrase))
+    case ZIP => Source.fromGraph(new PGPFileDecryptUnarchiveSource[ZipUnarchiveEventAction](is, pgpLocalPrivateKey, passPhrase))
   }
 }
 
@@ -51,44 +50,35 @@ object PGPFileDecryptUnarchiveSource {
   * Stream file source for S3 hosted files which wraps file input stream to stream of ByteString.
   * Also decrypt and unarchive incoming stream.
   *
-  * @param file S3 file data
+  * @param fileInputStream S3 file data input stream
   * @param pgpLocalPrivateKey
   * @param passPhrase
-  * @param s3Client
-  * @param bucket
   * @param unarchiver
   * @tparam E
   */
 class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
-                                                                file: FileMeta,
+                                                                fileInputStream: InputStream,
                                                                 pgpLocalPrivateKey: PGPLocalPrivateKey,
-                                                                passPhrase: Array[Char])(implicit s3Client: S3,
-                                                                                         bucket: Bucket,
+                                                                passPhrase: Array[Char])(implicit
                                                                                          unarchiver: UnarchiveAction[E#UnarchiveDTO])
   extends GraphStageWithMaterializedValue[SourceShape[ByteString],
-    Future[Done]] {
+    Future[(Long, InputStream)]] {
 
   val out: Outlet[ByteString] = Outlet[ByteString]("PGPFileDecryptUnarchiveSource.out")
 
   override val shape: SourceShape[ByteString] = SourceShape.of(out)
 
   override def createLogicAndMaterializedValue(
-                                                inheritedAttributes: Attributes): (GraphStageLogic, Future[Done]) = {
-    val p: Promise[Done] = Promise()
+                                                inheritedAttributes: Attributes): (GraphStageLogic, Future[(Long, InputStream)]) = {
+    val p: Promise[(Long, InputStream)] = Promise()
     (new GraphStageLogic(shape) with StageLogging with OutHandler {
 
-      private[this] lazy val requestedFileStream = s3Client
-        .get(bucket, file.key)
-        .map(_.content)
-        .getOrElse(new InputStream {
-          override def read(): Int = -1
-        })
-
-      var strm: InputStream = null
+      var strm: ZipArchiveInputStream = null
       var data: PGPPublicKeyEncryptedData = null
+      var counter: Long = 0l
 
       private[this] def decryptFile(): Unit = {
-        val verifiedStream = PGPUtil.getDecoderStream(requestedFileStream)
+        val verifiedStream = PGPUtil.getDecoderStream(fileInputStream)
         try {
           val (key, data) = extractPrivateKey(passPhrase, verifiedStream)
           val decryptedStream = getDecryptedStream(key, data)
@@ -101,7 +91,8 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
             case _ => throw NotEncryptedMessageException
           }
 
-          this.strm = unarchiver.wrapStream(msg.getInputStream).stream
+          this.strm = unarchiver.wrapStream(msg.getInputStream()).stream.asInstanceOf[ZipArchiveInputStream]
+          this.strm.getNextZipEntry
           this.data = data
         }
       }
@@ -109,19 +100,23 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
       override def preStart(): Unit = decryptFile()
 
       override def onDownstreamFinish(): Unit = {
-        if (data.isIntegrityProtected && !data.verify()) p.success(Done)
+        if (data.isIntegrityProtected && !data.verify()) p.success((counter, strm))
         else p.failure(IntegrityException)
       }
 
       override def onPull(): Unit = {
-        val bis = new BufferedInputStream(strm)
         val len = 8 * 1024
         val ba = new Array[Byte](len)
-        bis.read(ba, 0, len) match {
+        val b = strm.read(ba)
+        b match {
           case -1 => completeStage()
-          case _ => push(out, ByteString.fromArray(ba, 0, len))
+          case _ =>
+            counter = counter + 1
+            push(out, ByteString.fromArray(ba, 0, len))
         }
       }
+
+      setHandler(out, this)
     }, p.future)
   }
 
@@ -129,7 +124,7 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
     implicit e: PGPLiteralExtractor[T]) =
     e.extract(t)
 
-  private def getDecryptedStream(key: PGPPrivateKey,
+  private[this] def getDecryptedStream(key: PGPPrivateKey,
                                  data: PGPPublicKeyEncryptedData) = {
     val provider = Security.getProvider("BC")
     val dataDecryptorFactory = new JcePublicKeyDataDecryptorFactoryBuilder()
