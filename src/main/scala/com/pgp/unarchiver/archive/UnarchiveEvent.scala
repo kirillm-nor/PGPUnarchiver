@@ -7,10 +7,13 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
-sealed trait EventDTO {
-  def stream: InputStream
+trait StreamSeeker { self: InputStream =>
+  def seek: Unit
 }
 
+sealed trait EventDTO {
+  def stream: InputStream with StreamSeeker
+}
 
 /**
   * Type class which contains unarchive directives.
@@ -36,6 +39,9 @@ object EventAction {
   }
 }
 
-case class ZipEventDTO(stream: ZipArchiveInputStream) extends EventDTO
-case class TarGZipEventDTO(stream: TarArchiveInputStream) extends EventDTO
-case class GZipEventDTO(stream: GzipCompressorInputStream) extends EventDTO
+case class ZipEventDTO(stream: ZipArchiveInputStream with StreamSeeker)
+    extends EventDTO
+case class TarGZipEventDTO(stream: TarArchiveInputStream with StreamSeeker)
+    extends EventDTO
+case class GZipEventDTO(stream: GzipCompressorInputStream with StreamSeeker)
+    extends EventDTO
