@@ -14,7 +14,10 @@ import com.pgp.unarchiver.pgp.{
   PGPLocalPrivateKey
 }
 import com.pgp.unarchiver.s3.ZIP
-import com.pgp.unarchiver.shape.ByteStringProcessShape
+import com.pgp.unarchiver.shape.{
+  ByteStringProcessShape,
+  LineStringProcessingShape
+}
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalatest.{Matchers, WordSpec}
 
@@ -49,6 +52,7 @@ class DecryptFileSpec extends WordSpec with Matchers with FileSetup {
 
         val dc =
           PGPFileDecryptUnarchiveSource(is, ZIP, file, "kirmit".toCharArray)
+            .via(LineStringProcessingShape.apply)
             .runForeach(s => println(new String(s.toArray)))
 
         val res = Await.result(dc, 600 seconds)
