@@ -30,26 +30,22 @@ class LineStringProcessingShape
         new InHandler {
           override def onPush(): Unit = {
 
-            def grabUntil(b: ByteString, acc: Seq[String]): Seq[String] = {
+            def grabUntil(b: ByteString): Seq[String] = {
               b.span(b => b != nl) match {
-                case (l, r) if l.isEmpty && acc.isEmpty =>
-                  val e = grab(in)
-                  if (e.isEmpty) {
-                    rest = ByteString()
-                    Seq(new String(r.toArray))
-                  } else grabUntil(r ++ e, Seq())
                 case (l, r) if l.isEmpty =>
                   rest = r
-                  acc
+                  Seq()
                 case (l, r) if r.isEmpty =>
                   rest = ByteString()
-                  acc :+ new String(l.toArray)
-                case (l, r) => grabUntil(r, acc :+ new String(l.toArray))
+                  Seq(new String(l.toArray))
+                case (l, r) => new String(l.toArray) +: grabUntil(r)
               }
             }
 
-            val elems = grabUntil(rest ++ grab(in), Seq())
-            emitMultiple(out, elems.toIterator)
+            grabUntil(rest ++ grab(in)) match {
+              case Nil   => pull(in)
+              case elems => emitMultiple(out, elems.toIterator)
+            }
           }
         }
       )
