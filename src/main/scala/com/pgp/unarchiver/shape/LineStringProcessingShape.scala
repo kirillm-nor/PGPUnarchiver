@@ -50,6 +50,7 @@ class LineStringProcessingShape
 
           override def onUpstreamFinish(): Unit = {
             push(out, new String(rest.toArray))
+            completeStage()
           }
         }
       )
