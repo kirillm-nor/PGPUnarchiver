@@ -33,12 +33,12 @@ class LineStringProcessingShape
             def grabUntil(b: ByteString): Seq[String] = {
               b.span(b => b != nl) match {
                 case (l, r) if l.isEmpty =>
-                  rest = r
+                  rest = r.tail
                   Seq()
-                case (l, r) if r.isEmpty =>
+                case (l, r) if r.tail.isEmpty =>
                   rest = ByteString()
                   Seq(new String(l.toArray))
-                case (l, r) => new String(l.toArray) +: grabUntil(r)
+                case (l, r) => new String(l.toArray) +: grabUntil(r.tail)
               }
             }
 
@@ -46,6 +46,10 @@ class LineStringProcessingShape
               case Nil   => pull(in)
               case elems => emitMultiple(out, elems.toIterator)
             }
+          }
+
+          override def onUpstreamFinish(): Unit = {
+            push(out, new String(rest.toArray))
           }
         }
       )

@@ -134,7 +134,7 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
         val ba = new Array[Byte](len)
         val b = strm.read(ba)
         b match {
-          case -1 => completeStage()
+          case -1 => complete(out)
           case _ =>
             counter = counter + 1
             push(out, ByteString.fromArray(ba, 0, len))

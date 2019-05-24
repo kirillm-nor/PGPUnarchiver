@@ -33,8 +33,8 @@ class GenerateFileSpec extends WordSpec with Matchers with FileSetup {
 
     "generated" should {
 
-      val file1 = fileWithLines(100000)
-      val file2 = fileWithLines(100000)
+      val file1 = fileWithLines(100)
+      val file2 = fileWithLines(100)
 
       val paths = for {
         path1 <- file1
