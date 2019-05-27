@@ -35,6 +35,8 @@ class CheckSumShape
     (new GraphStageLogic(shape) with InHandler {
       val digest = java.security.MessageDigest.getInstance("MD5")
 
+      override def preStart(): Unit = pull(in)
+
       override def onPush(): Unit = {
         val e = grab(in)
         digest.update(e.toArray)
@@ -42,10 +44,12 @@ class CheckSumShape
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
+        super.onUpstreamFailure(ex)
         p.tryFailure(ex)
       }
 
       override def onUpstreamFinish(): Unit = {
+        super.onUpstreamFinish()
         p.trySuccess(digest.digest().map("%02x".format(_)).mkString)
         completeStage()
       }

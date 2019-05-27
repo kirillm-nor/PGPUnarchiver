@@ -34,7 +34,7 @@ case object UNSUPPORTED extends Extention {
 
 object Extention {
   def apply(name: String): Extention = {
-    name.split(".").takeRight(3).toSeq match {
+    name.split("\\.").takeRight(3).toSeq match {
       case Seq("tar", "gz", _) => TAR_GZ
       case Seq(_, "gz", _)     => GZ
       case Seq(_, "zip", _)    => ZIP
@@ -62,14 +62,16 @@ object S3FileSource {
   * @param materialiser
   * @param system
   */
-class S3FileSource(bucketName: String, checkSumPath: String)(
+class S3FileSource(bucketName: String,
+                   checkSumPath: String,
+                   prefix: Option[String] = None)(
     implicit materialiser: ActorMaterializer,
     system: ActorSystem) {
 
   import system.dispatcher
 
   private[this] lazy val files: Future[Seq[FileMeta]] = S3
-    .listBucket(bucketName, None)
+    .listBucket(bucketName, prefix)
     .flatMapConcat(
       l =>
         S3.getObjectMetadata(bucketName, l.key)
@@ -82,7 +84,11 @@ class S3FileSource(bucketName: String, checkSumPath: String)(
           l.key.split("/").last,
           Extention(l.key),
           l.key,
-          o.headers.asScala.find(h => h.name() == checkSumPath).map(_.value()))
+          Option(o.headers)
+            .flatMap(
+              _.asScala.find(h => h.name() == checkSumPath).map(_.value()))
+            .orElse(Option(l.eTag))
+        )
     }
     .filterNot(f => f.ext == UNSUPPORTED)
     .runWith(Sink.seq)

@@ -132,7 +132,6 @@
                   <resource>version.conf</resource>
                 </transformer>
               </transformers>
-              <minimizeJar>true</minimizeJar>
               <finalName>pgpunarchiver</finalName>
               <filters>
                 <filter>

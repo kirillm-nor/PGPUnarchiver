@@ -1,18 +1,14 @@
 package com.pgp.unarchiver.archive
 
 import java.io.InputStream
-import java.util.zip.ZipInputStream
 
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
-
-trait StreamSeeker { self: InputStream =>
-  def seek: Unit
+trait StreamSeeker {
+  self: InputStream =>
+  def seek(b: Array[Byte], off: Int, len: Int): Option[Int]
 }
 
 sealed trait EventDTO {
-  def stream: InputStream with StreamSeeker
+  def stream: StreamSeeker
 }
 
 /**
@@ -23,6 +19,7 @@ sealed abstract class UnarchiveEventAction {
 }
 
 object EventAction {
+
   case object ZipUnarchiveEventAction extends UnarchiveEventAction {
     override type UnarchiveDTO = ZipEventDTO
     type ZipUnarchiveEventAction = ZipUnarchiveEventAction.type
@@ -37,11 +34,11 @@ object EventAction {
     override type UnarchiveDTO = GZipEventDTO
     type GZipUnarchiveEventAction = GZipUnarchiveEventAction.type
   }
+
 }
 
-case class ZipEventDTO(stream: ZipArchiveInputStream with StreamSeeker)
-    extends EventDTO
-case class TarGZipEventDTO(stream: TarArchiveInputStream with StreamSeeker)
-    extends EventDTO
-case class GZipEventDTO(stream: GzipCompressorInputStream with StreamSeeker)
-    extends EventDTO
+case class ZipEventDTO(stream: StreamSeeker) extends EventDTO
+
+case class TarGZipEventDTO(stream: StreamSeeker) extends EventDTO
+
+case class GZipEventDTO(stream: StreamSeeker) extends EventDTO

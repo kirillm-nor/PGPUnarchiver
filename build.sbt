@@ -10,6 +10,8 @@ libraryDependencies ++= Seq(
   "com.github.seratch" %% "awscala-s3" % "0.8.2",
   "org.apache.commons" % "commons-compress" % "1.18",
   "com.github.scopt" %% "scopt" % "3.7.1",
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 
 assemblyJarName in assembly := "pgpunarchiver-fat.jar"

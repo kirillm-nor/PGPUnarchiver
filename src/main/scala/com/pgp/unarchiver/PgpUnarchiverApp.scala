@@ -17,7 +17,8 @@ case class PipeConfig(awsSecret: String = "",
                       awsRegion: Region = Region.default(),
                       keyRingPath: String = "",
                       passPhrase: String = "",
-                      bucketName: String = "")
+                      bucketName: String = "",
+                      prefix: Option[String] = None)
 
 /**
   * The main setup class which declares all configs and actor system.
@@ -38,7 +39,7 @@ trait AppSetup {
       .required()
       .valueName("<secret>")
       .action((s, c) => c.copy(awsSecret = s))
-      .validate(s => Either.cond(s.isEmpty, Unit, "Secret shouldn't be blank"))
+      .validate(s => Either.cond(s.nonEmpty, Unit, "Secret shouldn't be blank"))
       .text("AWS Secret Key")
 
     opt[String]('a', "access")
@@ -46,7 +47,7 @@ trait AppSetup {
       .valueName("<access>")
       .action((a, c) => c.copy(awsAccess = a))
       .validate(s =>
-        Either.cond(s.isEmpty, Unit, "Access key shouldn't be blank"))
+        Either.cond(s.nonEmpty, Unit, "Access key shouldn't be blank"))
       .text("AWS Access Key")
 
     opt[String]('r', "region")
@@ -70,16 +71,21 @@ trait AppSetup {
       .required()
       .valueName("<bucket>")
       .action((b, c) => c.copy(bucketName = b))
-      .validate(b => Either.cond(b.isEmpty, Unit, "Bucket shouldn't be blank"))
+      .validate(b => Either.cond(b.nonEmpty, Unit, "Bucket shouldn't be blank"))
       .text("AWS Bucket Name")
 
     opt[String]("phrase")
       .required()
       .valueName("<phrase>")
       .action((p, c) => c.copy(passPhrase = p))
-      .validate(p => Either.cond(p.isEmpty, Unit, "Phrase shouldn't be empty"))
+      .validate(p => Either.cond(p.nonEmpty, Unit, "Phrase shouldn't be empty"))
       .text("Pass phrase of pgp")
 
+    opt[String]("prefix")
+      .valueName("<value>")
+      .action((p, c) => c.copy(prefix = Some(p)))
+      .validate(p => Either.cond(p.nonEmpty, Unit, "Prefix shouldn't be empty"))
+      .text("S3 prefix")
   }
 }
 
@@ -97,7 +103,8 @@ object PgpUnarchiverApp extends App with AppSetup {
       val pipe =
         PgpUnarchiverPipe(pc.bucketName,
                           Paths.get(pc.keyRingPath),
-                          pc.passPhrase)
+                          pc.passPhrase,
+                          pc.prefix)
       pipe.compareCheckSum
         .flatMap {
           case true => pipe.decryptionFlow
@@ -108,6 +115,8 @@ object PgpUnarchiverApp extends App with AppSetup {
           case Success(_) => logger.info("Stream completed")
           case Failure(ex) =>
             logger.error("Exceptionally close application", ex)
+            ex.printStackTrace()
+            System.exit(0)
         }
     case None =>
       logger.error("Exceptionally close application")

@@ -26,11 +26,11 @@ object Unarchiver {
     new UnarchiveAction[ZipEventDTO] {
       override def wrapStream(in: InputStream): ZipEventDTO =
         ZipEventDTO(new ZipArchiveInputStream(in) with StreamSeeker {
-          private[this] var currentEntry: Option[ZipArchiveEntry] = Option.empty
-
-          override def seek: Unit = {
-            currentEntry = currentEntry.orElse(Option(getNextZipEntry))
-          }
+          override def seek(b: Array[Byte], off: Int, len: Int): Option[Int] =
+            read(b, off, len) match {
+              case -1 => Option(getNextZipEntry).flatMap(_ => seek(b, off, len))
+              case x  => Some(x)
+            }
         })
     }
 
@@ -40,11 +40,12 @@ object Unarchiver {
         TarGZipEventDTO(
           new TarArchiveInputStream(new GzipCompressorInputStream(in))
           with StreamSeeker {
-            private[this] var currentEntry: Option[TarArchiveEntry] =
-              Option.empty
-            override def seek: Unit = {
-              currentEntry = currentEntry.orElse(Option(getNextTarEntry))
-            }
+            override def seek(b: Array[Byte], off: Int, len: Int): Option[Int] =
+              read(b, off, len) match {
+                case -1 =>
+                  Option(getNextTarEntry).flatMap(_ => seek(b, off, len))
+                case x => Some(x)
+              }
           })
     }
 
@@ -52,7 +53,8 @@ object Unarchiver {
     new UnarchiveAction[GZipEventDTO] {
       override def wrapStream(in: InputStream): GZipEventDTO =
         GZipEventDTO(new GzipCompressorInputStream(in) with StreamSeeker {
-          override def seek: Unit = Unit
+          override def seek(b: Array[Byte], off: Int, len: Int): Option[Int] =
+            Option(read(b, off, len)).filter(_ != -1)
         })
     }
 }

@@ -1,9 +1,8 @@
 package com.pgp.unarchiver
 
-import java.io.OutputStream
+import java.io.{File, OutputStream}
 
-import awscala.s3.S3
-import com.amazonaws.services.s3.model.UploadPartRequest
+import awscala.s3.{Bucket, S3}
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -11,13 +10,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 trait S3Setup {
   implicit def s3Client: S3
 
-  def uploadBigFile(name: String,
-                    bucketName: String,
-                    outputStream: OutputStream): Future[String] = {
-    val uploadRequest = new UploadPartRequest()
+  def uploadFile(name: String,
+                 bucketName: String,
+                 file: File): Future[String] = {
     Future {
-      s3Client.uploadPart(uploadRequest)
-    }.map(_.getETag)
+      s3Client.put(Bucket(bucketName), name, file)
+    }.map(_.key)
   }
 
 }

@@ -35,10 +35,11 @@ class LineStringProcessingShape
                 case (l, r) if l.isEmpty =>
                   rest = r.tail
                   Seq()
-                case (l, r) if r.tail.isEmpty =>
-                  rest = ByteString()
-                  Seq(new String(l.toArray))
-                case (l, r) => new String(l.toArray) +: grabUntil(r.tail)
+                case (l, r) if r.isEmpty =>
+                  rest = l
+                  Seq()
+                case (l, r) =>
+                  new String(l.filter(b => b != 0).toArray) +: grabUntil(r.tail)
               }
             }
 
@@ -49,7 +50,7 @@ class LineStringProcessingShape
           }
 
           override def onUpstreamFinish(): Unit = {
-            push(out, new String(rest.toArray))
+            push(out, new String(rest.filter(b => b != 0).toArray))
             completeStage()
           }
         }
