@@ -103,11 +103,14 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
       var counter: Long = 0l
 
       private[this] def decryptFile(): Unit = {
+        log.debug("Decrypting file, take a probe")
         val verifiedStream = PGPUtil.getDecoderStream(fileInputStream)
         try {
           val (key, data) = extractPrivateKey(passPhrase, verifiedStream)
           val decryptedStream = getDecryptedStream(key, data)
           val plainFactory = new JcaPGPObjectFactory(decryptedStream)
+
+          log.debug("Private key extraction")
 
           val msg = plainFactory.nextObject match {
             case msg: PGPLiteralData      => extract[PGPLiteralData](msg)
@@ -115,7 +118,7 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
             case msg: PGPOnePassSignature => extract[PGPOnePassSignature](msg)
             case _                        => throw NotEncryptedMessageException
           }
-
+          log.debug("Literal data wrapping to extract input stream")
           this.strm = unarchiver.wrapStream(msg.getInputStream).stream
           this.data = data
         }
@@ -124,9 +127,13 @@ class PGPFileDecryptUnarchiveSource[E <: UnarchiveEventAction](
       override def preStart(): Unit = decryptFile()
 
       override def onDownstreamFinish(): Unit = {
-        if (data.isIntegrityProtected && !data.verify())
+        if (data.isIntegrityProtected && !data.verify()) {
+          log.debug("Stream successfully validated")
           p.success((counter, strm))
-        else p.failure(IntegrityException)
+        } else {
+          log.error("Stream was modified")
+          p.failure(IntegrityException)
+        }
         IOUtils.closeQuietly(strm.asInstanceOf[InputStream])
       }
 

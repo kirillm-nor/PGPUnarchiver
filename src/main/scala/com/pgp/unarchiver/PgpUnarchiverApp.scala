@@ -112,10 +112,11 @@ object PgpUnarchiverApp extends App with AppSetup {
             Future.failed(new InterruptedException("Checksum invalid"))
         }
         .onComplete {
-          case Success(_) => logger.info("Stream completed")
+          case Success(_) =>
+            logger.info("Stream completed")
+            System.exit(0)
           case Failure(ex) =>
             logger.error("Exceptionally close application", ex)
-            ex.printStackTrace()
             System.exit(0)
         }
     case None =>

@@ -51,6 +51,7 @@ class LineStringProcessingShape
 
           override def onUpstreamFinish(): Unit = {
             push(out, new String(rest.filter(b => b != 0).toArray))
+            log.debug("All lines was wrapped")
             completeStage()
           }
         }

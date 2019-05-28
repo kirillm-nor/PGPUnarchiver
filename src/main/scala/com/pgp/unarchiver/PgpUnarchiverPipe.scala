@@ -7,8 +7,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Keep, Sink}
-import akka.util.ByteString
+import akka.stream.scaladsl.Keep
 import awscala.s3.{Bucket, S3}
 import com.pgp.unarchiver.pgp.{
   PGPFileDecryptUnarchiveSource,
@@ -16,11 +15,12 @@ import com.pgp.unarchiver.pgp.{
   PGPSourceShape
 }
 import com.pgp.unarchiver.s3.S3FileSource
-import com.pgp.unarchiver.shape.ByteStringProcessShape
+import com.pgp.unarchiver.shape.LineStringProcessingShape
 
 import scala.concurrent.Future
 
 /**
+  * Pipe to process pgp file with textual content.
   *
   * @param bucketName
   * @param pgpKeyPath
@@ -58,13 +58,14 @@ class PgpUnarchiverPipe(bucketName: String,
     } yield {
       val greenMap = files.map(m => m.name -> m.checkSum.getOrElse("")).toMap
       val checkMap = check.toMap
-      val count = greenMap.keySet
+      val inters = greenMap.keySet
         .intersect(checkMap.keySet)
-        .map(k => greenMap(k) == checkMap(k))
+      val count = inters
         .foldLeft(0) {
-          case (i, true)  => i + 1
-          case (i, false) => i
+          case (i, k) if greenMap(k) == checkMap(k) => i + 1
+          case (i, _)                               => i
         }
+      logger.debug("Files checksums calculated")
       count == greenMap.size
     }
   }
@@ -88,11 +89,8 @@ class PgpUnarchiverPipe(bucketName: String,
                                           privateKey,
                                           passPhrase.toCharArray)
           }
-          .viaMat(Flow.fromGraph(new ByteStringProcessShape[ByteString]({ bs =>
-            println(bs.toString())
-            bs
-          })))(Keep.left)
-          .runWith(Sink.ignore)
+          .viaMat(LineStringProcessingShape.apply)(Keep.right)
+          .runForeach(s => logger.debug(s))
           .recover {
             case ex =>
               logger.error("Exceptional pipe execution", ex)

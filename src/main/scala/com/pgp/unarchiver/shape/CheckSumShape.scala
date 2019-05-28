@@ -6,7 +6,8 @@ import akka.stream.scaladsl.Sink
 import akka.stream.stage.{
   GraphStageLogic,
   GraphStageWithMaterializedValue,
-  InHandler
+  InHandler,
+  StageLogging
 }
 import akka.util.ByteString
 
@@ -32,7 +33,7 @@ class CheckSumShape
   override def createLogicAndMaterializedValue(
       inheritedAttributes: Attributes): (GraphStageLogic, Future[String]) = {
     val p: Promise[String] = Promise()
-    (new GraphStageLogic(shape) with InHandler {
+    (new GraphStageLogic(shape) with InHandler with StageLogging {
       val digest = java.security.MessageDigest.getInstance("MD5")
 
       override def preStart(): Unit = pull(in)
@@ -51,6 +52,8 @@ class CheckSumShape
       override def onUpstreamFinish(): Unit = {
         super.onUpstreamFinish()
         p.trySuccess(digest.digest().map("%02x".format(_)).mkString)
+        log.debug(
+          s"Checksum calculation completed is ${digest.digest().map("%02x".format(_)).mkString}")
         completeStage()
       }
 
